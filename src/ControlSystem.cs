@@ -10,10 +10,14 @@ using Crestron.SimplSharpPro.DeviceSupport;
 using Crestron.SimplSharpPro.GeneralIO;
 using Crestron.SimplSharpPro.UI;
 
+using HomeOfficeControl.AV;
+
 namespace HomeOfficeControl
 {
     public class ControlSystem : CrestronControlSystem
     {
+        private ExtronSw4Hd4k[] _switcher;
+
         public ControlSystem()
         {
             Thread.MaxNumberOfUserThreads = 50;
@@ -21,6 +25,8 @@ namespace HomeOfficeControl
 
             if (CrestronDataStoreStatic.InitCrestronDataStore() != CrestronDataStore.CDS_ERROR.CDS_SUCCESS)
                 CrestronConsole.PrintLine("Could not initialize CrestronDataStore?!");
+
+            _switcher = new ExtronSw4Hd4k[2];
         }
 
         public override void InitializeSystem()
@@ -32,13 +38,27 @@ namespace HomeOfficeControl
             tsw.ExtenderTouchDetectionReservedSigs.DeviceExtenderSigChange += _tsw_TouchDetection;
 
             tsw.Register();
+
+            var exp = new CenIoCom102(0xA5, this); // CEN-IO-COM-102 is used for HDMI switchers
+            exp.OnlineStatusChange += _exp_OnlineStatusChange;
+
+            exp.Register();
+
+            _switcher[0] = new ExtronSw4Hd4k(); // Switcher for Primary monitor
+            _switcher[0].UseSerial(exp.ComPorts[1]);
+
+            _switcher[1] = new ExtronSw4Hd4k(); // Switcher for Secondary monitor
+            _switcher[1].UseSerial(exp.ComPorts[2]);
         }
 
         void OnProgramStatusChange(eProgramStatusEventType type)
         {
             if (type == eProgramStatusEventType.Stopping) // Clean things up before the program stops
             {
+                _switcher[0].Dispose();
+                _switcher[1].Dispose();
 
+                CrestronDataStoreStatic.Flush();
             }
         }
 
@@ -46,7 +66,25 @@ namespace HomeOfficeControl
         {
             if (args.Sig.Type == eSigType.Bool)
             {
-                CrestronConsole.PrintLine("_tsw_TouchDetection: {0} is {1}", args.Sig.Name, args.Sig.BoolValue);
+                if (args.Sig.Number == 29726) // Activity
+                {
+                    if (args.Sig.BoolValue == false) // No activity detected
+                    {
+                        // TODO: go back to clock activity
+                    }
+                }
+            }
+        }
+
+        void _exp_OnlineStatusChange(GenericBase dev, OnlineOfflineEventArgs args)
+        {
+            if (args.DeviceOnLine)
+            {
+                // TODO: re-enable polling?
+            }
+            else
+            {
+                // TODO: pause polling?
             }
         }
     }
