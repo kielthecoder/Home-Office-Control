@@ -34,7 +34,7 @@ namespace HomeOfficeControl.UI
                 {
                     for (uint i = 0; i < _joins.Length; i++)
                     {
-                        if (args.Sig.Number == _joins[i]) // one of the joins we're listening for
+                        if (args.Sig.Number == _joins[i]) // one of the joins we're listening for?
                         {
                             Switcher.Outputs[1].VideoInput = i;
                         }
