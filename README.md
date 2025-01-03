@@ -6,3 +6,6 @@ This is a SIMPL# example that runs my home office setup.  It's Crestron 3-series
 
 Clone this repo and open the solution file using Visual Studio 2008.
 
+Press Ctrl+Shift+B to Rebuild Solution.
+
+Using Toolbox, load the resulting CPZ program to any 3-series or 4-series controller.
