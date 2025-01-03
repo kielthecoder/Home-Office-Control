@@ -10,15 +10,13 @@ using Crestron.SimplSharpPro.DeviceSupport;
 using Crestron.SimplSharpPro.GeneralIO;
 using Crestron.SimplSharpPro.UI;
 
-using HomeOfficeControl.AV;
-using HomeOfficeControl.UI;
-
 namespace HomeOfficeControl
 {
     public class ControlSystem : CrestronControlSystem
     {
-        private ExtronSw4Hd4k[] _switcher;
-        private OfficeUI _ui;
+        private AV.ExtronVideoSwitcher[] _switcher;
+        private UI.OfficeUI _ui;
+        private UI.UserPresets _presets;
 
         public ControlSystem()
         {
@@ -28,7 +26,7 @@ namespace HomeOfficeControl
             if (CrestronDataStoreStatic.InitCrestronDataStore() != CrestronDataStore.CDS_ERROR.CDS_SUCCESS)
                 CrestronConsole.PrintLine("Could not initialize CrestronDataStore?!");
 
-            _switcher = new ExtronSw4Hd4k[2];
+            _switcher = new AV.ExtronSw4Hd4k[2];
         }
 
         public override void InitializeSystem()
@@ -37,10 +35,10 @@ namespace HomeOfficeControl
             exp.OnlineStatusChange += _exp_OnlineStatusChange;
             exp.Register();
 
-            _switcher[0] = new ExtronSw4Hd4k(); // Switcher for Primary monitor
+            _switcher[0] = new AV.ExtronSw4Hd4k(); // switcher for Primary monitor
             _switcher[0].UseSerial(exp.ComPorts[1]);
 
-            _switcher[1] = new ExtronSw4Hd4k(); // Switcher for Secondary monitor
+            _switcher[1] = new AV.ExtronSw4Hd4k(); // switcher for Secondary monitor
             _switcher[1].UseSerial(exp.ComPorts[2]);
 
             var tsw = new Ts770(0x03, this); // TS-770 is the main interface
@@ -56,18 +54,23 @@ namespace HomeOfficeControl
         {
             CrestronConsole.PrintLine("InitializeUI: {0}", tsw);
 
-            _ui = new OfficeUI(tsw, "Home Office_TS-770_v1.sgd");
+            _ui = new UI.OfficeUI(tsw, "Home Office_TS-770_v1.sgd");
 
-            var uiSw1 = new VideoSwitcherControl(_ui, _switcher[0], new uint[] { 50, 51, 52, 53, 54 }); // Primary monitor joins
-            var uiSw2 = new VideoSwitcherControl(_ui, _switcher[1], new uint[] { 60, 61, 62, 63, 64 }); // Secondary monitor joins
+            var sw1 = new UI.VideoSwitcherControl(_ui, _switcher[0], new uint[] { 50, 51, 52, 53, 54 }); // primary monitor joins
+            var sw2 = new UI.VideoSwitcherControl(_ui, _switcher[1], new uint[] { 60, 61, 62, 63, 64 }); // secondary monitor joins
+
+            _presets = new UI.UserPresets(_ui, new uint[] { 31, 32, 33, 34 }); // 4 programmable presets
+            _presets.StorePreset += StoreUserPreset;
+            _presets.RecallPreset += RecallUserPreset;
 
             tsw.Register();
         }
 
         void OnProgramStatusChange(eProgramStatusEventType type)
         {
-            if (type == eProgramStatusEventType.Stopping) // Clean things up before the program stops
+            if (type == eProgramStatusEventType.Stopping) // clean things up before the program stops
             {
+                _presets.Dispose();
                 _ui.Dispose();
 
                 _switcher[0].Dispose();
@@ -81,11 +84,11 @@ namespace HomeOfficeControl
         {
             if (args.Sig.Type == eSigType.Bool)
             {
-                if (args.Sig.Number == 29726) // Activity
+                if (args.Sig.Number == 29726) // touch activity
                 {
-                    if (args.Sig.BoolValue == false) // No activity detected
+                    if (args.Sig.BoolValue == false) // no activity detected!
                     {
-                        _ui.SelectActivity(Activity.Clock);
+                        _ui.SelectActivity(UI.Activity.Clock);
                     }
                 }
             }
@@ -96,7 +99,44 @@ namespace HomeOfficeControl
             if (args.DeviceOnLine)
             {
                 // Default to Clock activity
-                _ui.SelectActivity(Activity.Clock);
+                _ui.SelectActivity(UI.Activity.Clock);
+            }
+        }
+
+        void StoreUserPreset(uint number)
+        {
+            string key;
+
+            CrestronConsole.PrintLine("Storing preset {0}", number);
+
+            for (uint i = 0; i < _switcher.Length; i++)
+            {
+                key = String.Format("preset{0}-sw{1}-output1", number, i);
+                if (CrestronDataStoreStatic.SetLocalUintValue(key, _switcher[i].Outputs[1].VideoInput) != CrestronDataStore.CDS_ERROR.CDS_SUCCESS)
+                {
+                    CrestronConsole.PrintLine("Error saving {0}!", key);
+                }
+            }
+        }
+
+        void RecallUserPreset(uint number)
+        {
+            string key;
+            uint value;
+
+            CrestronConsole.PrintLine("Recalling preset {0}", number);
+
+            for (uint i = 0; i < _switcher.Length; i++)
+            {
+                key = String.Format("preset{0}-sw{1}-output1", number, i);
+                if (CrestronDataStoreStatic.GetLocalUintValue(key, out value) == CrestronDataStore.CDS_ERROR.CDS_SUCCESS)
+                {
+                    _switcher[i].Outputs[1].VideoInput = value;
+                }
+                else
+                {
+                    CrestronConsole.PrintLine("Error recalling {0}!", key);
+                }
             }
         }
     }
