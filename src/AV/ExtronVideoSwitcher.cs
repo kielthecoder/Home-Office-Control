@@ -34,8 +34,16 @@ namespace HomeOfficeControl.AV
         public void UseSerial(ComPort port)
         {
             _port = port;
-            _port.SetComPortSpec(_spec);
-            _port.SerialDataReceived += ExtronDataReceived;
+
+            if (_port.Register() == eDeviceRegistrationUnRegistrationResponse.Success)
+            {
+                _port.SetComPortSpec(_spec);
+                _port.SerialDataReceived += ExtronDataReceived;
+            }
+            else
+            {
+                CrestronConsole.PrintLine("ExtronVideoSwitcher: Failed to register COM port");
+            }
         }
 
         void ExtronPoll()

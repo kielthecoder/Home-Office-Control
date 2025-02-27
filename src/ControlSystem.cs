@@ -15,6 +15,7 @@ namespace HomeOfficeControl
     public class ControlSystem : CrestronControlSystem
     {
         private AV.ExtronVideoSwitcher[] _switcher;
+        private AV.ExtronUsbSwitcher _usb;
         private UI.OfficeUI _ui;
         private UI.UserPresets _presets;
 
@@ -27,6 +28,7 @@ namespace HomeOfficeControl
                 CrestronConsole.PrintLine("Could not initialize CrestronDataStore?!");
 
             _switcher = new AV.ExtronSw4Hd4k[2];
+            _usb = new AV.ExtronUsbSwitcher();
         }
 
         public override void InitializeSystem()
@@ -40,6 +42,12 @@ namespace HomeOfficeControl
 
             _switcher[1] = new AV.ExtronSw4Hd4k(); // switcher for Secondary monitor
             _switcher[1].UseSerial(exp.ComPorts[2]);
+
+            if (this.SupportsComPort)
+            {
+                CrestronConsole.PrintLine("Attaching USB switcher to COM port 1");
+                _usb.UseSerial(this.ComPorts[1]); // USB switcher
+            }
 
             var tsw = new Ts770(0x03, this); // TS-770 is the main interface
 
@@ -138,6 +146,9 @@ namespace HomeOfficeControl
                     CrestronConsole.PrintLine("Error recalling {0}!", key);
                 }
             }
+
+            CrestronConsole.PrintLine("Switching to USB host: {0}", number);
+            _usb.Take(number);
         }
     }
 }
