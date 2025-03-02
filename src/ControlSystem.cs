@@ -15,7 +15,7 @@ namespace HomeOfficeControl
     public class ControlSystem : CrestronControlSystem
     {
         private AV.ExtronVideoSwitcher[] _switcher;
-        private AV.ExtronUsbSwitcher _usb;
+        private AV.UsbSwitcher _usb;
         private UI.OfficeUI _ui;
         private UI.UserPresets _presets;
 
@@ -28,7 +28,7 @@ namespace HomeOfficeControl
                 CrestronConsole.PrintLine("Could not initialize CrestronDataStore?!");
 
             _switcher = new AV.ExtronSw4Hd4k[2];
-            _usb = new AV.ExtronUsbSwitcher();
+            _usb = new AV.AtenUsbSwitcher();
         }
 
         public override void InitializeSystem()

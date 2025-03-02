@@ -7,20 +7,20 @@ using Crestron.SimplSharpPro;
 
 namespace HomeOfficeControl.AV
 {
-    public class ExtronUsbSwitcher : UsbSwitcher
+    public class AtenUsbSwitcher : UsbSwitcher
     {
         private ComPort.ComPortSpec _spec;
         private ComPort _port;
 
-        public ExtronUsbSwitcher()
+        public AtenUsbSwitcher()
         {
             _spec = new ComPort.ComPortSpec()
             {
-                BaudRate = ComPort.eComBaudRates.ComspecBaudRate9600,
+                BaudRate = ComPort.eComBaudRates.ComspecBaudRate38400,
                 DataBits = ComPort.eComDataBits.ComspecDataBits8,
                 Parity = ComPort.eComParityType.ComspecParityNone,
                 StopBits = ComPort.eComStopBits.ComspecStopBits1,
-                Protocol = ComPort.eComProtocolType.ComspecProtocolRS232
+                Protocol = ComPort.eComProtocolType.ComspecProtocolRS485
             };
         }
 
@@ -30,29 +30,36 @@ namespace HomeOfficeControl.AV
 
             if (_port.Register() == eDeviceRegistrationUnRegistrationResponse.Success)
             {
-                _port.SetComPortSpec(_spec);
-                _port.SerialDataReceived += ExtronDataReceived;
+                if (_port.Supports485)
+                {
+                    _port.SetComPortSpec(_spec);
+                    _port.SerialDataReceived += AtenDataReceived;
+                }
+                else
+                {
+                    CrestronConsole.PrintLine("AtenUsbSwitcher: {0} doesn't support RS-485!", port);
+                }
             }
             else
             {
-                CrestronConsole.PrintLine("ExtronUsbSwitcher: Failed to register COM port");
+                CrestronConsole.PrintLine("AtenUsbSwitcher: Failed to register COM port");
             }
         }
 
-        private void ExtronDataReceived(ComPort port, ComPortSerialDataEventArgs args)
+        private void AtenDataReceived(ComPort port, ComPortSerialDataEventArgs args)
         {
-            CrestronConsole.PrintLine("ExtronUsbSwitcher rx: {0}", args.SerialData);
+            CrestronConsole.PrintLine("AtenUsbSwitcher rx: {0}", args.SerialData);
         }
 
         public override void Take(uint host)
         {
             try
             {
-                _port.Send(String.Format("{0}!", host));
+                _port.Send(String.Format("sw p0{0}\n", host));
             }
             catch (Exception e)
             {
-                CrestronConsole.PrintLine("Exception in ExtronUsbSwitcherSend: {0}", e.Message);
+                CrestronConsole.PrintLine("Exception in AtenUsbSwitcherSend: {0}", e.Message);
             }
         }
     }
